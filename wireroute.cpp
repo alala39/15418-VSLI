@@ -207,7 +207,9 @@ int costPerLine(int x1,int x2,int y1,int y2,cost_t *costs, int dim_x, int dim_y)
         int end = std::max(y1,y2);
         while(start <= end)
         {
-            result += costs[start * dim_x + x1];
+            //result += costs[start * dim_x + x1];
+            if(costs[start * dim_x + x1]>result)
+            result = costs[start * dim_x + x1];
             start+=1;
         }
     }
@@ -218,7 +220,9 @@ int costPerLine(int x1,int x2,int y1,int y2,cost_t *costs, int dim_x, int dim_y)
         int end = std::max(x1,x2);
         while(start <= end)
         {
-            result += costs[y1 * dim_x + start];
+            //result += costs[y1 * dim_x + start];
+            if(costs[y1 * dim_x + start])
+            result = costs[y1 * dim_x + start];
             start+=1;
         }
     }
@@ -242,8 +246,12 @@ int costEqualX(int x, int y1,int y2,cost_t *costs,int dim_x,int dim_y,int delta,
     {
         for(int i = 1;i<=delta/2;i++)
         {
-            int res1 = costPerLine(x,x+i,y1,y1,costs,dim_x,dim_y) + costPerLine(x+i,x+i,y1,y2,costs,dim_x,dim_y) + costPerLine(x+i,x,y2,y2,costs,dim_x,dim_y);
-            int res2 = costPerLine(x,x-i,y1,y1,costs,dim_x,dim_y) + costPerLine(x-i,x-i,y1,y2,costs,dim_x,dim_y) + costPerLine(x-i,x,y2,y2,costs,dim_x,dim_y);
+            if(x+i >= dim_x || x-i < 0)
+            {
+                continue;
+            }
+            int res1 = std::max(costPerLine(x,x+i,y1,y1,costs,dim_x,dim_y),std::max(costPerLine(x+i,x+i,y1,y2,costs,dim_x,dim_y),costPerLine(x+i,x,y2,y2,costs,dim_x,dim_y)));
+            int res2 = std::max(costPerLine(x,x-i,y1,y1,costs,dim_x,dim_y),std::max(costPerLine(x-i,x-i,y1,y2,costs,dim_x,dim_y),costPerLine(x-i,x,y2,y2,costs,dim_x,dim_y)));
             result = std::min(result,std::min(res1,res2));
             if(result==res1 && (result<=curMin || curMin==0 || *deltaUsed==undef))
             {
@@ -281,32 +289,37 @@ int checkAllHorizontal(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int d
 {
     //TODO THIS FUNCTION WILL CHECK ALL HORIZONTAL (CHANGES IN X) VARIATIONS OF THE WIRE CONFIGURATION
     int result = 0;
-    int startX = std::min(x1,x2) - delta/2;
-    int endX = std::max(x1,x2) + delta/2;
-    int leftBound = std::min(x1,x2);
+    int startX = std::min(x1,x2);
+    int endX = std::max(x1,x2);
+    int lowerBound = startX - (delta/2);
+    int upperBound = endX + (delta/2);
     int startY;
     int endY;
     int curMin = 0;
-    if(leftBound==x1)
+    if(startX==x1)
     {
         startY = y1;
         endY = y2;
     }
     else
     {
-        assert(leftBound==x2);
+        assert(startX==x2);
         startY = y2;
         endY = y1;
     }
-    int rightBound = std::max(x1,x2);
-    for(int i = startX;i <=endX;i++)
+    for(int i = lowerBound;i <=upperBound;i++)
     {
-        int rec = costPerLine(startX,i,startY,startY,costs,dim_x,dim_y) + costPerLine(i,i,startY,endY,costs,dim_x,dim_y) + costPerLine(i,endX,endY,endY,costs,dim_x,dim_y);
+        if(i >= dim_x || i < 0)
+        {
+            continue;
+        }
+        
+        int rec = std::max(costPerLine(startX,i,startY,startY,costs,dim_x,dim_y),std::max(costPerLine(i,i,startY,endY,costs,dim_x,dim_y),costPerLine(i,endX,endY,endY,costs,dim_x,dim_y)));
         if(rec<=curMin || curMin==0)
         {
             curMin = rec;
             //TODO STORE THE NEW WIRE
-            wire_t w = {startX,endX,startY,endY,i,startY,i,endY};
+            wire_t w = {startX,endX,startY,endY,i,i,startY,endY};
             *wire = w;
         }
     }
@@ -317,31 +330,35 @@ int checkAllHorizontal(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int d
 int checkAllVertical(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int dim_y,int delta,wire_t *wire)
 {
     int result = 0;
-    int startY = std::min(y1,y2) - delta/2;
-    int endY = std::max(y1,y2) + delta/2;
-    int lowerBound = std::min(y1,y2);
-    int upperBound = std::max(y1,y2);
+    int startY = std::min(y1,y2);
+    int endY = std::max(y1,y2);
+    int lowerBound = startY - (delta/2);
+    int upperBound = endY + (delta/2);
     int startX;
     int endX;
     int curMin = 0;
-    if(lowerBound==y1)
+    if(startY==y1)
     {
         startX = x1;
         endX = x2;
     }
     else
     {
-        assert(lowerBound==y2);
+        assert(startY==y2);
         startX = x2;
         endX = x1;
     }
-    for(int i = startY;i<endY;i++)
+    for(int i = lowerBound;i<upperBound;i++)
     {
-        int rec = costPerLine(startX,startX,startY,i,costs,dim_x,dim_y) + costPerLine(startX,endX,i,i,costs,dim_x,dim_y) + costPerLine(endX,endX,i,endY,costs,dim_x,dim_y);
+        if(i>=dim_y || i<0)
+        {
+            continue;
+        }
+        int rec = std::max(costPerLine(startX,startX,startY,i,costs,dim_x,dim_y),std::max(costPerLine(startX,endX,i,i,costs,dim_x,dim_y),costPerLine(endX,endX,i,endY,costs,dim_x,dim_y)));
         if(rec<=curMin || curMin==0)
         {
             curMin = rec;
-            wire_t w = {startX,endX,startY,endY,startX,i,endX,i};
+            wire_t w = {startX,endX,startY,endY,startX,endX,i,i};
             *wire = w;
         }
     }
@@ -366,8 +383,12 @@ int costEqualY(int x1, int x2,int y,cost_t *costs,int dim_x,int dim_y,int delta,
     {
         for(int i = 1;i<=delta/2;i++)
         {
-            int res1 = costPerLine(x1,x1,y,y+i,costs,dim_x,dim_y) + costPerLine(x1,x2,y+i,y+i,costs,dim_x,dim_y) + costPerLine(x2,x2,y+i,y,costs,dim_x,dim_y);
-            int res2 = costPerLine(x1,x1,y,y-i,costs,dim_x,dim_y) + costPerLine(x1,x2,y-i,y-i,costs,dim_x,dim_y) + costPerLine(x2,x2,y-i,y,costs,dim_x,dim_y);
+            if(y+i>=dim_y || y-i < 0)  //Boundary check
+            {
+                continue;
+            }
+            int res1 = std::max(costPerLine(x1,x1,y,y+i,costs,dim_x,dim_y),std::max(costPerLine(x1,x2,y+i,y+i,costs,dim_x,dim_y),costPerLine(x2,x2,y+i,y,costs,dim_x,dim_y)));
+            int res2 = std::max(costPerLine(x1,x1,y,y-i,costs,dim_x,dim_y),std::max(costPerLine(x1,x2,y-i,y-i,costs,dim_x,dim_y),costPerLine(x2,x2,y-i,y,costs,dim_x,dim_y)));
             result = std::min(result,std::min(res1,res2));
             if(result==res1 && (res1<=curMin || curMin==0 || *deltaUsed==undef))
             {
@@ -438,7 +459,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         {
             removeEqualXWire(x1,y1,wires[i].bend1y,costs,dim_x,dim_y);
         }
-        else
+        else if(y1=wires[i].bend1y)
         {
             //assert(y1==wires[i].bend1y);
             removeEqualYWire(x1,wires[i].bend1x,y1,costs,dim_x,dim_y);
@@ -449,7 +470,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
             {
                 removeEqualXWire(wires[i].bend1x,wires[i].bend1y,wires[i].bend2y,costs,dim_x,dim_y);
             }
-            else
+            else if(wires[i].bend1y==wires[i].bend2y)
             {
                 //assert(wires[i].bend1y==wires[i].bend2y);
                 removeEqualYWire(wires[i].bend1x,wires[i].bend2x,wires[i].bend1y,costs,dim_x,dim_y);
@@ -458,7 +479,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
             {
                 removeEqualXWire(x2,wires[i].bend2y,y2,costs,dim_x,dim_y);
             }
-            else
+            else if(wires[i].bend2y==y2)
             {
                 //assert(wires[i].bend2y==y2);
                 removeEqualYWire(wires[i].bend2x,x2,y2,costs,dim_x,dim_y);
@@ -468,7 +489,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         {
             removeEqualXWire(x2,wires[i].bend1y,y2,costs,dim_x,dim_y);
         }
-        else
+        else if(wires[i].bend1y==y2)
         {
             //assert(wires[i].bend1y==y2);
             removeEqualYWire(wires[i].bend1x,x2,y2,costs,dim_x,dim_y);
@@ -622,6 +643,7 @@ int main(int argc, const char *argv[])
      * Use OpenMP to parallelize the algorithm. 
      * You should really implement as much of this (if not all of it) in
      * helper functions. */
+      //TODO WILL IMPLEMENT ANNEALING HERE
       serialAlg(wires,costs,SA_iters,dim_x,dim_y,num_of_wires,delta);
   }
 
