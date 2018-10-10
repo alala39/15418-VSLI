@@ -118,81 +118,52 @@ void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
     int bend2x = wire->bend2x;
     int bend1y = wire->bend1y;
     int bend2y = wire->bend2y;
-    int tempX = std::min(x1,x2);
-    if(tempX!=x1)
+    if(bend1x!=undef && bend1y!=undef)  //At least one bend
     {
-        x2 = x1;
-        x1 = tempX;
-        int tempY = y2;
-        y2 = y1;
-        y1 = tempY;
-    }
-    if(bend1x!=bend2x)
-    {
-        int tempBX = std::min(bend1x,bend2x);
-        if(tempBX!=bend1x)
+        if(x1==bend1x)
         {
-            bend2x = bend1x;
-            bend1x = tempBX;
-            int tempBY = bend1y;
-            bend1y = bend2y;
-            bend2y = tempBY;
-        }
-    }
-    else
-    {
-        assert(bend1x==bend2x);
-        int tempBY = std::min(bend1y,bend2y);
-        if(tempBY!=bend1y)
-        {
-            bend2y = bend1y;
-            bend1y = tempBY;
-            int tempBX = bend1x;
-            bend1x = bend2x;
-            bend2x = tempBX;
-        }
-    }
-    if(x1==bend1x)
-    {
-        placeXWire(x1,y1,bend1y,costs,dim_x,dim_y);
-    }
-    else
-    {
-        //assert(y1==bend1y);
-        placeYWire(x1,bend1x,y1,costs,dim_x,dim_y);
-    }
-    if(bend2x!=undef && bend2y!=undef)  //Two bends
-    {
-        if(bend1x==bend2x)
-        {
-            placeXWire(bend1x,bend1y,bend2y,costs,dim_x,dim_y);
+            placeXWire(x1,y1,bend1y,costs,dim_x,dim_y);
         }
         else
         {
-            //assert(bend1y==bend2y);
-            placeYWire(bend1x,bend2x,bend1y,costs,dim_x,dim_y);
+            assert(y1==bend1y);
+            placeYWire(x1,bend1x,y1,costs,dim_x,dim_y);
         }
-        if(bend2x==x2)
+        if(bend2x!=undef && bend2y!=undef)  //Two bends
         {
-            placeXWire(x2,bend2y,y2,costs,dim_x,dim_y);
+            if(bend1x==bend2x)
+            {
+                placeXWire(bend1x,bend1y,bend2y,costs,dim_x,dim_y);
+            }
+            else
+            {
+                assert(bend1y==bend2y);
+                placeYWire(bend1x,bend2x,bend2y,costs,dim_x,dim_y);
+            }
         }
-        else
+        else //Only one bend
         {
-            //assert(bend2y==y2);
-            placeYWire(bend2x,x2,y2,costs,dim_x,dim_y);
+            if(bend1x==x2)
+            {
+                placeXWire(x2,bend1y,y2,costs,dim_x,dim_y);
+            }
+            else
+            {
+                assert(bend1y==y2);
+                placeYWire(bend1x,x2,y2,costs,dim_x,dim_y);
+            }
         }
     }
-    else  //Only one bend
+    else  //No bend
     {
-        assert(bend2x==undef && bend2y==undef);
-        if(bend1x==x2)
+        if(x1==x2)
         {
-            placeXWire(x2,bend1y,y2,costs,dim_x,dim_y);
+            placeXWire(x1,y1,y2,costs,dim_x,dim_y);
         }
         else
         {
-            //assert(bend1y==y2);
-            placeYWire(bend1x,x2,y2,costs,dim_x,dim_y);
+            assert(y1==y2);
+            placeYWire(x1,x2,y1,costs,dim_x,dim_y);
         }
     }
 }
@@ -241,7 +212,7 @@ int costEqualX(int x, int y1,int y2,cost_t *costs,int dim_x,int dim_y,int delta,
     {
         return 0;
     }
-    int curMin = 0;
+    int curMin = -1;
     if(delta>0)
     {
         for(int i = 1;i<=delta/2;i++)
@@ -250,19 +221,19 @@ int costEqualX(int x, int y1,int y2,cost_t *costs,int dim_x,int dim_y,int delta,
             {
                 continue;
             }
-            int res1 = std::max(costPerLine(x,x+i,y1,y1,costs,dim_x,dim_y),std::max(costPerLine(x+i,x+i,y1,y2,costs,dim_x,dim_y),costPerLine(x+i,x,y2,y2,costs,dim_x,dim_y)));
-            int res2 = std::max(costPerLine(x,x-i,y1,y1,costs,dim_x,dim_y),std::max(costPerLine(x-i,x-i,y1,y2,costs,dim_x,dim_y),costPerLine(x-i,x,y2,y2,costs,dim_x,dim_y)));
+            int res1 = std::max(costPerLine(x,x+i,start,start,costs,dim_x,dim_y),std::max(costPerLine(x+i,x+i,start,end,costs,dim_x,dim_y),costPerLine(x+i,x,end,end,costs,dim_x,dim_y)));
+            int res2 = std::max(costPerLine(x,x-i,start,start,costs,dim_x,dim_y),std::max(costPerLine(x-i,x-i,start,end,costs,dim_x,dim_y),costPerLine(x-i,x,end,end,costs,dim_x,dim_y)));
             result = std::min(result,std::min(res1,res2));
-            if(result==res1 && (result<=curMin || curMin==0 || *deltaUsed==undef))
+            if(result==res1 && (result<=curMin || curMin==-1 || *deltaUsed==undef))
             {
-                wire_t w = {x,x,y1,y1,x+i,x+i,y1,y2};
+                wire_t w = {x,x,y1,y2,x+i,x+i,y1,y2};
                 *wire = w;
                 curMin = res1;
                 *deltaUsed = i;
             }
-            else if(result==res2 && (result<=curMin || curMin==0 || *deltaUsed==undef))
+            else if(result==res2 && (result<=curMin || curMin==-1 || *deltaUsed==undef))
             {
-                wire_t w = {x,x,y1,y1,x-i,x-i,y1,y2};
+                wire_t w = {x,x,y1,y2,x-i,x-i,y1,y2};
                 *wire = w;
                 curMin = res2;
                 *deltaUsed = i;
@@ -295,7 +266,7 @@ int checkAllHorizontal(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int d
     int upperBound = endX + (delta/2);
     int startY;
     int endY;
-    int curMin = 0;
+    int curMin = -1;
     if(startX==x1)
     {
         startY = y1;
@@ -315,12 +286,29 @@ int checkAllHorizontal(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int d
         }
         
         int rec = std::max(costPerLine(startX,i,startY,startY,costs,dim_x,dim_y),std::max(costPerLine(i,i,startY,endY,costs,dim_x,dim_y),costPerLine(i,endX,endY,endY,costs,dim_x,dim_y)));
-        if(rec<=curMin || curMin==0)
+        if(rec<=curMin || curMin==-1)
         {
-            curMin = rec;
-            //TODO STORE THE NEW WIRE
-            wire_t w = {startX,endX,startY,endY,i,i,startY,endY};
-            *wire = w;
+            if(i!=startX && i!=endX)
+            {
+                curMin = rec;
+                //TODO STORE THE NEW WIRE
+                wire_t w = {startX,endX,startY,endY,i,i,startY,endY};
+                *wire = w;
+            }
+            else if(i==startX)
+            {
+                curMin = rec;
+                //TODO STORE THE NEW WIRE
+                wire_t w = {startX,endX,startY,endY,i,undef,endY,undef};
+                *wire = w;
+            } 
+            else if(i==endX)
+            {
+                curMin = rec;
+                //TODO STORE THE NEW WIRE
+                wire_t w = {startX,endX,startY,endY,i,undef,startY,undef};
+                *wire = w;
+            }
         }
     }
     return curMin;
@@ -336,7 +324,7 @@ int checkAllVertical(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int dim
     int upperBound = endY + (delta/2);
     int startX;
     int endX;
-    int curMin = 0;
+    int curMin = -1;
     if(startY==y1)
     {
         startX = x1;
@@ -355,11 +343,26 @@ int checkAllVertical(int x1,int x2,int y1,int y2,cost_t *costs,int dim_x,int dim
             continue;
         }
         int rec = std::max(costPerLine(startX,startX,startY,i,costs,dim_x,dim_y),std::max(costPerLine(startX,endX,i,i,costs,dim_x,dim_y),costPerLine(endX,endX,i,endY,costs,dim_x,dim_y)));
-        if(rec<=curMin || curMin==0)
+        if(rec<=curMin || curMin==-1)
         {
-            curMin = rec;
-            wire_t w = {startX,endX,startY,endY,startX,endX,i,i};
-            *wire = w;
+            if(i!=startY && i !=endY)
+            {
+                curMin = rec;
+                wire_t w = {startX,endX,startY,endY,startX,endX,i,i};
+                *wire = w;
+            }
+            else if(i == startY)
+            {
+                curMin = rec;
+                wire_t w = {startX,endX,startY,endY,endX,undef,i,undef};
+                *wire = w;
+            }
+            else if(i == endY)
+            {
+                curMin = rec;
+                wire_t w = {startX,endX,startY,endY,startX,undef,i,undef};
+                *wire = w;
+            } 
         }
     }
     return curMin;
@@ -371,7 +374,7 @@ int costEqualY(int x1, int x2,int y,cost_t *costs,int dim_x,int dim_y,int delta,
     int result = 0;
     int start = std::min(x1,x2);
     int end = std::max(x1,x2);
-    int curMin;
+    int curMin = -1;
     result = costPerLine(x1,x2,y,y,costs,dim_x,dim_y);
     wire_t w = {x1,x2,y,y,undef,undef,undef,undef};
     *wire = w;
@@ -387,17 +390,17 @@ int costEqualY(int x1, int x2,int y,cost_t *costs,int dim_x,int dim_y,int delta,
             {
                 continue;
             }
-            int res1 = std::max(costPerLine(x1,x1,y,y+i,costs,dim_x,dim_y),std::max(costPerLine(x1,x2,y+i,y+i,costs,dim_x,dim_y),costPerLine(x2,x2,y+i,y,costs,dim_x,dim_y)));
-            int res2 = std::max(costPerLine(x1,x1,y,y-i,costs,dim_x,dim_y),std::max(costPerLine(x1,x2,y-i,y-i,costs,dim_x,dim_y),costPerLine(x2,x2,y-i,y,costs,dim_x,dim_y)));
+            int res1 = std::max(costPerLine(start,start,y,y+i,costs,dim_x,dim_y),std::max(costPerLine(start,end,y+i,y+i,costs,dim_x,dim_y),costPerLine(end,end,y+i,y,costs,dim_x,dim_y)));
+            int res2 = std::max(costPerLine(start,start,y,y-i,costs,dim_x,dim_y),std::max(costPerLine(start,end,y-i,y-i,costs,dim_x,dim_y),costPerLine(end,end,y-i,y,costs,dim_x,dim_y)));
             result = std::min(result,std::min(res1,res2));
-            if(result==res1 && (res1<=curMin || curMin==0 || *deltaUsed==undef))
+            if(result==res1 && (res1<=curMin || curMin==-1 || *deltaUsed==undef))
             {
                 wire_t w = {x1,x2,y,y,x1,x2,y+i,y+i};
                 *wire = w;
                 curMin = res1;
                 *deltaUsed = i;
             }
-            else if(result==res2 && (res1<=curMin || curMin==0 || *deltaUsed==undef))
+            else if(result==res2 && (res1<=curMin || curMin==-1 || *deltaUsed==undef))
             {
                 wire_t w = {x1,x2,y,y,x1,x2,y-i,y-i};
                 *wire = w;
@@ -419,7 +422,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
   int counter = 0;
   while(counter < SA_iters)
   {
-    for(size_t i = 0;i<num_of_wires;i++)
+    for(int i = 0;i<num_of_wires;i++)
     {
       int x1 = wires[i].x1;
       int y1 = wires[i].y1;
@@ -440,6 +443,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
             wire_t EqX = {x1,x2,y1,y2,undef,undef,undef,undef};
             int deltaUsed = undef;
             int curCostWire = costEqualX(x1,y1,y2,costs,dim_x,dim_y,delta,&EqX,&deltaUsed);
+            placeWire(&EqX,costs,dim_x,dim_y);
             //TODO NEED TO PLACE EQX
         }
         else
@@ -449,6 +453,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
             wire_t EqY = {x1,x2,y1,y2,undef,undef,undef,undef};
             int deltaUsed = undef;
             int curCostWire = costEqualY(x1,x2,y1,costs,dim_x,dim_y,delta,&EqY,&deltaUsed);
+            placeWire(&EqY,costs,dim_x,dim_y);
             //TODO NEED TO PLACE EQY
         }
       }
@@ -459,7 +464,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         {
             removeEqualXWire(x1,y1,wires[i].bend1y,costs,dim_x,dim_y);
         }
-        else if(y1=wires[i].bend1y)
+        else if(y1==wires[i].bend1y)
         {
             //assert(y1==wires[i].bend1y);
             removeEqualYWire(x1,wires[i].bend1x,y1,costs,dim_x,dim_y);
@@ -494,20 +499,20 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
             //assert(wires[i].bend1y==y2);
             removeEqualYWire(wires[i].bend1x,x2,y2,costs,dim_x,dim_y);
         }
-        wire_t noB = {x1,x2,y1,y2,undef,undef,undef,undef};
+        //wire_t noB = {x1,x2,y1,y2,undef,undef,undef,undef};
         wire_t H = {x1,x2,y1,y2,undef,undef,undef,undef};
         wire_t V = {x1,x2,y1,y2,undef,undef,undef,undef};
-        int noBend = checkWire(x1,x2,y1,y2,costs,dim_x,dim_y,&noB); 
+        //int noBend = checkWire(x1,x2,y1,y2,costs,dim_x,dim_y,&noB); 
         int Horizontal = checkAllHorizontal(x1,x2,y1,y2,costs,dim_x,dim_y,delta,&H);
         int Vertical = checkAllVertical(x1,x2,y1,y2,costs,dim_x,dim_y,delta,&V);
-        minimum = std::min(noBend,std::min(Horizontal,Vertical));
-        if(minimum==noBend)
+        minimum = std::min(Horizontal,Vertical);
+        /*if(minimum==noBend)
         {
             //TODO NEED TO PLACE NOB
             wires[i] = noB;
             placeWire(&noB,costs,dim_x,dim_y);
-        }
-        else if(minimum==Horizontal)
+        }*/
+        if(minimum==Horizontal)
         {
             //TODO NEED TO PLACE H
             wires[i] = H;
