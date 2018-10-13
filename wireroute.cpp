@@ -61,34 +61,26 @@ static void show_help(const char *program_path)
 
 //TODO NEED TO FIRST REMOVE THE CURRENT WIRE BEFORE FINDING THE COST FOR THE MOST OPTIMAL PATH 
 
-void removeEqualXWire(int x,int y1,int y2,cost_t *costs,int dim_x,int dim_y)
+void removeEqualXWire(int x,int y1,int y2,cost_t *costs,int dim_x,int dim_y,int by)
 {
     int start = std::min(y1,y2);
     int end = std::max(y1,y2);
     while(start<=end)
     {
-        if(x==29 && start==9)
-        printf("BeforeRX: %d\n",costs[start * dim_x + x]);
-        if(costs[start * dim_x + x])
+        if(costs[start * dim_x + x] && start!=by)
         costs[start * dim_x + x]-=1;
-        if(x==29 && start==9)
-        printf("AfterX: %d\n",costs[start * dim_x + x]);
         start+=1;
     }
 }
 
-void removeEqualYWire(int x1,int x2,int y,cost_t *costs,int dim_x,int dim_y)
+void removeEqualYWire(int x1,int x2,int y,cost_t *costs,int dim_x,int dim_y,int bx)
 {
     int start = std::min(x1,x2);
     int end = std::max(x1,x2);
     while(start <= end)
     {
-        if(start==29 && y==9)
-        printf("BeforeRY: %d\n",costs[y * dim_x + start]);
-        if(costs[y * dim_x + start])
+        if(costs[y * dim_x + start] && start!=bx)
         costs[y * dim_x + start]-=1;
-        if(start==29 && y==9)
-        printf("AfterRY: %d\n",costs[y * dim_x + start]);
         start+=1;
     }
 }
@@ -99,10 +91,10 @@ void placeXWire(int x,int y1,int y2,cost_t *costs,int dim_x,int dim_y)
     int end = std::max(y1,y2);
     while(start<=end)
     {
-        if(x==29 && start==9)
+        if(x==28 && start==5)
         printf("BeforePX: %d\n",costs[start * dim_x + x]);
         costs[start * dim_x + x]+=1;
-        if(x==29 && start==9)
+        if(x==28 && start==5)
         printf("AfterPX: %d\n",costs[start * dim_x + x]);
         start+=1;
     }
@@ -114,27 +106,26 @@ void placeYWire(int x1,int x2,int y,cost_t *costs,int dim_x,int dim_y)
     int end = std::max(x1,x2);
     while(start <= end)
     {
-        if(start==29 && y==9)
+        if(start==28 && y==5)
         printf("BeforePY: %d\n",costs[y * dim_x + start]);
         costs[y * dim_x + start]+=1;
-        if(start==29 && y==9)
+        if(start==28 && y==5)
         printf("AfterPY: %d\n",costs[y * dim_x + start]);
         start+=1;
     }
 }
 
-void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
+void placeWire(wire_t *wire,cost_t *costs,int dim_x, int dim_y)
 {
-    //Assumes that the wire being placed has at least one bend
     int x1 = wire->x1;
-    int x2 = wire->x2;
     int y1 = wire->y1;
+    int x2 = wire->x2;
     int y2 = wire->y2;
     int bend1x = wire->bend1x;
-    int bend2x = wire->bend2x;
     int bend1y = wire->bend1y;
+    int bend2x = wire->bend2x;
     int bend2y = wire->bend2y;
-    bool BADWIRE = (x1==16) && (y1==9) && (bend1x==29) && (bend1y==9) && (bend2x==29) && (bend2y==23) && (x2==30) && (y2==23);
+    
     if(bend1x!=undef && bend1y!=undef)  //At least one bend
     {
         if(x1==bend1x)  //Segment 1
@@ -146,18 +137,18 @@ void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
             assert(y1==bend1y);
             placeYWire(x1,bend1x,y1,costs,dim_x,dim_y);
         }
-        if(bend2x!=undef && bend2y!=undef)  //Two bends
+        if(bend2x!=undef && bend2y!=undef)  //Segment 2
         {
-            if(bend1x==bend2x)  //Segment 2
+            if(bend1x==bend2x)
             {
                 placeXWire(bend1x,bend1y,bend2y,costs,dim_x,dim_y);
             }
             else
             {
-                assert(bend1y==bend2y && bend1x!=bend2x);
-                placeYWire(bend1x,bend2x,bend2y,costs,dim_x,dim_y);
+                assert(bend1y==bend2y);
+                placeYWire(bend1x,bend2x,bend1y,costs,dim_x,dim_y);
             }
-            if(bend2x==x2)  //Segment 3
+            if(x2==bend2x)  //Segment 3
             {
                 placeXWire(x2,bend2y,y2,costs,dim_x,dim_y);
             }
@@ -167,9 +158,8 @@ void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
                 placeYWire(bend2x,x2,y2,costs,dim_x,dim_y);
             }
         }
-        else //Only one bend
+        else
         {
-            assert(bend2x==undef && bend2y==undef);
             if(bend1x==x2)
             {
                 placeXWire(x2,bend1y,y2,costs,dim_x,dim_y);
@@ -181,9 +171,8 @@ void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
             }
         }
     }
-    else  //No bend
+    else
     {
-        assert(bend1x==undef && bend1y==undef && bend2x==undef && bend2y==undef);
         if(x1==x2)
         {
             placeXWire(x1,y1,y2,costs,dim_x,dim_y);
@@ -196,11 +185,19 @@ void placeWire(wire_t *wire,cost_t *costs,int dim_x,int dim_y)
     }
     if(bend1x!=undef && bend1y!=undef)
     {
+        if(bend1x==28 && bend1y==5)
+        printf("Before Bend 1 Remove: %d\n",costs[bend1y * dim_x + bend1x]);
         costs[bend1y * dim_x + bend1x]-=1;
+        if(bend1x==28 && bend1y==5)
+        printf("After Bend 1 Remove: %d\n",costs[bend1y * dim_x + bend1x]);
     }
     if(bend2x!=undef && bend2y!=undef)
     {
+        if(bend2x==28 && bend2y==5)
+        printf("Before Bend 2 Remove: %d\n",costs[bend2y * dim_x + bend2x]);
         costs[bend2y * dim_x + bend2x]-=1;
+        if(bend2x==28 && bend2x==5)
+        printf("After Bend 2 Remove: %d\n",costs[bend2y * dim_x + bend2x]);
     }
 }
 
@@ -479,7 +476,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         //int curCostWire = costPerLine(x1,x2,y1,y2,costs,dim_x,dim_y);
         if(x1==x2)
         {
-            removeEqualXWire(x1,y1,y2,costs,dim_x,dim_y);
+            removeEqualXWire(x1,y1,y2,costs,dim_x,dim_y,undef);
             wire_t EqX = {x1,x2,y1,y2,undef,undef,undef,undef};
             int deltaUsed = undef;
             int curCostWire = costEqualX(x1,y1,y2,costs,dim_x,dim_y,delta,&EqX,&deltaUsed);
@@ -489,7 +486,7 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         else
         {
             assert(y1==y2);
-            removeEqualYWire(x1,x2,y1,costs,dim_x,dim_y);
+            removeEqualYWire(x1,x2,y1,costs,dim_x,dim_y,undef);
             wire_t EqY = {x1,x2,y1,y2,undef,undef,undef,undef};
             int deltaUsed = undef;
             int curCostWire = costEqualY(x1,x2,y1,costs,dim_x,dim_y,delta,&EqY,&deltaUsed);
@@ -502,43 +499,51 @@ void serialAlg(wire_t *wires,cost_t *costs,int SA_iters,int dim_x,int dim_y,int 
         //TODO FIRST CHECK HORIZONTAL PATHS, THEN VERTICAL PATHS FOR NEW MIN.
         if(x1==wires[i].bend1x)
         {
-            removeEqualXWire(x1,y1,wires[i].bend1y,costs,dim_x,dim_y);
+            removeEqualXWire(x1,y1,wires[i].bend1y,costs,dim_x,dim_y,undef);
         }
         else if(y1==wires[i].bend1y)
         { 
             //assert(y1==wires[i].bend1y);
-            removeEqualYWire(x1,wires[i].bend1x,y1,costs,dim_x,dim_y);
+            removeEqualYWire(x1,wires[i].bend1x,y1,costs,dim_x,dim_y,undef);
         }
         if(wires[i].bend2x!=undef && wires[i].bend2y!=undef)
         {
             if(wires[i].bend1x==wires[i].bend2x)
             {  
-                removeEqualXWire(wires[i].bend1x,wires[i].bend1y,wires[i].bend2y,costs,dim_x,dim_y);
+                removeEqualXWire(wires[i].bend1x,wires[i].bend1y,wires[i].bend2y,costs,dim_x,dim_y,wires[i].bend1y);
             }
             else if(wires[i].bend1y==wires[i].bend2y)
             {
                 //assert(wires[i].bend1y==wires[i].bend2y);
-                removeEqualYWire(wires[i].bend1x,wires[i].bend2x,wires[i].bend1y,costs,dim_x,dim_y);
+                removeEqualYWire(wires[i].bend1x,wires[i].bend2x,wires[i].bend1y,costs,dim_x,dim_y,wires[i].bend1x);
             }
             if(wires[i].bend2x==x2)
             {
-                removeEqualXWire(x2,wires[i].bend2y,y2,costs,dim_x,dim_y);
+                removeEqualXWire(x2,wires[i].bend2y,y2,costs,dim_x,dim_y,wires[i].bend2y);
             }
             else if(wires[i].bend2y==y2)
             { 
                 //assert(wires[i].bend2y==y2);
-                removeEqualYWire(wires[i].bend2x,x2,y2,costs,dim_x,dim_y);
+                removeEqualYWire(wires[i].bend2x,x2,y2,costs,dim_x,dim_y,wires[i].bend2x);
             }
         }
         else if(wires[i].bend1x==x2)
         {
-            removeEqualXWire(x2,wires[i].bend1y,y2,costs,dim_x,dim_y);
+            removeEqualXWire(x2,wires[i].bend1y,y2,costs,dim_x,dim_y,wires[i].bend1y);
         }
         else if(wires[i].bend1y==y2)
         {
             //assert(wires[i].bend1y==y2);
-            removeEqualYWire(wires[i].bend1x,x2,y2,costs,dim_x,dim_y);
+            removeEqualYWire(wires[i].bend1x,x2,y2,costs,dim_x,dim_y,wires[i].bend1x);
         }
+        /*if(wires[i].bend1x!=undef && wires[i].bend1y!=undef)
+        {
+            costs[wires[i].bend1y * dim_x + wires[i].bend1x]+=1;
+        }
+        if(wires[i].bend2x!=undef && wires[i].bend2y!=undef)
+        {
+            costs[wires[i].bend2y * dim_x + wires[i].bend2x]+=1;
+        }*/
         //wire_t noB = {x1,x2,y1,y2,undef,undef,undef,undef};
         wire_t H = {x1,x2,y1,y2,undef,undef,undef,undef};
         wire_t V = {x1,x2,y1,y2,undef,undef,undef,undef};
